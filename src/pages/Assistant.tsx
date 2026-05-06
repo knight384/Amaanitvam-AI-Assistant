@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Bot, User, Sparkles, AlertCircle, Loader2, RefreshCcw, Square, Mic } from "lucide-react";
+import { Send, Bot, User, Sparkles, AlertCircle, Loader2, RefreshCcw, Square, Mic, ThumbsUp, ThumbsDown, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "../lib/utils";
@@ -12,6 +12,7 @@ interface Message {
   role: "user" | "bot";
   content: string;
   id: string;
+  feedback?: "like" | "dislike";
 }
 
 const SUGGESTED_PROMPTS = [
@@ -22,27 +23,51 @@ const SUGGESTED_PROMPTS = [
 ];
 
 const SYSTEM_INSTRUCTION = `You are Amaan, the official AI representative of Amaanitvam Foundation. 
-Amaanitvam Foundation is an NGO dedicated to bridging the digital divide through AI and technology.
-Key projects: 
-- Project Saksham (Digital literacy for youth)
-- Tele-Assistance (AI companion for seniors)
-- Amaanitvam Hubs (Physical community tech centers)
-Mission: Empowerment through technological equity.
-Tone: Empathetic, professional, inspiring, and helpful.
+Amaanitvam Foundation is a leading NGO dedicated to bridging the digital divide through human-centric AI and technology.
 
-Keep responses concise and direct. Use markdown for better formatting (lists, bold text). 
-If someone asks about donations, mention that they can go to the /donate page. 
-If they ask about volunteering, suggest the /volunteer page.
-Avoid overly long explanations unless asked.`;
+### Your Knowledge Base:
+- **Project Saksham**: Empowering rural youth with AI and computing skills to enhance modern employment opportunities.
+- **Project Shiksha**: A foundational education initiative using AI-driven personalized learning tools to improve literacy and numeracy for primary school children in underserved areas.
+- **Project Manthan**: Our research-focused initiative exploring ethical AI deployment strategies and policy advocacy for the social sector.
+- **Tele-Assistance**: A vernacular (local language) AI companion designed to support senior citizens in remote locations, providing companionship and health reminders.
+- **Amaanitvam Hubs**: Physical "smart centers" equipped with hardware (laptops, internet) for free community digital exploration and learning.
+- **Current Priority**: The "Himalayan Digital Lab" campaign. Raising ₹25,00,000 to bring satellite internet and modular AI labs to 5 remote Himalayan villages.
+
+### Impact Stats:
+- **50,000+** lives impacted across India.
+- **1.2 Million+** AI sessions delivered.
+- **24** Global partnerships.
+- **12** Project cities.
+
+### Key Action Pathways:
+1. **Donating**: Direct users to [/donate](/donate). 
+   - ₹500: Internet for 5 students.
+   - ₹2000: AI Workshop for a community.
+   - ₹5000: Refurbished laptop + 1 year of mentoring.
+2. **Volunteering**: Direct users to [/volunteer](/volunteer).
+   - Roles: Tech Mentor, Content Creator, Outreach Lead, Systems Support.
+   - *Note*: Our application form now supports **Resume/File Uploads**.
+
+### Interaction Guidelines:
+- **Tone**: Empathetic, professional, and inspiring. Use "we" to represent the Foundation.
+- **Formatting**: Always use Markdown. Use **bold** for key terms and bullet points for lists.
+- **Clarity**: Keep responses concise. If a user asks about complex tech, explain it simply.
+- **Safety**: Do not request or store sensitive personal information from users.
+
+If asked about topics outside of Amaanitvam's mission, politely bring the conversation back to how technology and AI are being used for social good.`;
+
+const STORAGE_KEY = "amaan_ai_messages";
 
 export const Assistant = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+    return [{
       role: "bot",
       content: "Hello! I'm Amaan, your AI companion from Amaanitvam Foundation. How can I help you explore our impact initiatives today?",
       id: "initial",
-    },
-  ]);
+    }];
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -56,6 +81,7 @@ export const Assistant = () => {
 
   useEffect(() => {
     scrollToBottom();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages, isLoading, isStreaming]);
 
   const handleSend = async (text: string = input) => {
@@ -150,12 +176,30 @@ export const Assistant = () => {
     }
   };
 
+  const setFeedback = (msgId: string, type: "like" | "dislike") => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === msgId ? { ...msg, feedback: type } : msg
+    ));
+  };
+
+  const clearHistory = () => {
+    if (confirm("Clear your conversation history?")) {
+      const initialMsg: Message = {
+        role: "bot",
+        content: "Hello! I'm Amaan, your AI companion from Amaanitvam Foundation. How can I help you explore our impact initiatives today?",
+        id: "initial",
+      };
+      setMessages([initialMsg]);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen bg-brand-bg flex flex-col items-center">
       <div className="max-w-4xl w-full flex flex-col h-[calc(100vh-180px)]">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 px-2">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-cyan flex items-center justify-center shadow-lg shadow-brand-purple/20">
               <Bot className="text-white w-7 h-7" />
@@ -167,19 +211,30 @@ export const Assistant = () => {
                   "w-2 h-2 rounded-full",
                   isStreaming ? "bg-brand-cyan animate-pulse" : "bg-green-500"
                 )} />
-                <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">
+                <span className="text-gray-500 text-xs font-bold uppercase tracking-widest leading-none">
                   {isStreaming ? "Streaming..." : "Active Assistant"}
                 </span>
               </div>
             </div>
           </div>
-          <button 
-            onClick={() => setMessages([messages[0]])}
-            className="p-2 glass hover:bg-white/10 rounded-xl text-gray-400 transition-colors"
-            title="Clear Chat"
-          >
-            <RefreshCcw size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            {messages.length > 1 && (
+              <button 
+                onClick={clearHistory}
+                className="p-2.5 glass hover:bg-red-500/10 hover:text-red-500 rounded-xl text-gray-500 transition-all border border-transparent hover:border-red-500/20"
+                title="Clear History"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+            <button 
+              onClick={() => window.location.reload()}
+              className="p-2.5 glass hover:bg-white/10 rounded-xl text-gray-400 transition-colors"
+              title="Refresh Session"
+            >
+              <RefreshCcw size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Chat Area */}
@@ -202,23 +257,48 @@ export const Assistant = () => {
                   )}>
                     {m.role === "user" ? <User size={20} className="text-black" /> : <Bot size={20} className="text-white" />}
                   </div>
-                  <div className={cn(
-                    "p-5 rounded-2xl text-sm leading-relaxed",
-                    m.role === "user" 
-                      ? "bg-brand-cyan text-black font-medium" 
-                      : "bg-white/5 border border-white/10 text-gray-200"
-                  )}>
-                    {m.content ? (
-                      <div className="markdown-body prose prose-invert prose-sm max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {m.content}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <div className="flex gap-1 py-1">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" />
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <div className="space-y-2 flex-1">
+                    <div className={cn(
+                      "p-5 rounded-2xl text-sm leading-relaxed",
+                      m.role === "user" 
+                        ? "bg-brand-cyan text-black font-medium" 
+                        : "bg-white/5 border border-white/10 text-gray-200"
+                    )}>
+                      {m.content ? (
+                        <div className="markdown-body prose prose-invert prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1.5 py-2">
+                          <span className="w-1.5 h-1.5 bg-brand-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {m.role === "bot" && m.content && m.id !== "initial" && (
+                      <div className="flex items-center gap-2 px-1">
+                        <button 
+                          onClick={() => setFeedback(m.id, "like")}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-colors hover:bg-white/5",
+                            m.feedback === "like" ? "text-brand-cyan bg-brand-cyan/10" : "text-gray-600"
+                          )}
+                        >
+                          <ThumbsUp size={14} className={cn(m.feedback === "like" && "fill-current")} />
+                        </button>
+                        <button 
+                          onClick={() => setFeedback(m.id, "dislike")}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-colors hover:bg-white/5",
+                            m.feedback === "dislike" ? "text-red-500 bg-red-500/10" : "text-gray-600"
+                          )}
+                        >
+                          <ThumbsDown size={14} className={cn(m.feedback === "dislike" && "fill-current")} />
+                        </button>
                       </div>
                     )}
                   </div>

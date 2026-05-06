@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Users, Code, BookOpen, Mic2, Heart, CheckCircle2, Send, Laptop, Sparkles } from "lucide-react";
+import { Users, Code, BookOpen, Mic2, Heart, CheckCircle2, Send, Laptop, Sparkles, Upload, FileText, X } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const roles = [
@@ -36,6 +36,36 @@ const roles = [
 
 export const Volunteer = () => {
   const [formStatus, setFormStatus] = useState<"idle" | "submitting" | "success">("idle");
+  const [dragActive, setDragActive] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const removeFile = () => setFile(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +202,59 @@ export const Volunteer = () => {
                     placeholder="Tell us a bit about your motivation..."
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 focus:outline-none focus:border-brand-purple transition-all min-h-[150px] resize-none"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Resume / Supporting Documents</label>
+                  <div 
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-4",
+                      dragActive ? "border-brand-cyan bg-brand-cyan/5 scale-[1.02]" : "border-white/10 bg-white/5 hover:bg-white/[0.08] hover:border-white/20",
+                      file ? "border-green-500/50 bg-green-500/5" : ""
+                    )}
+                  >
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                      accept=".pdf,.doc,.docx,.txt"
+                    />
+
+                    {file ? (
+                      <div className="flex items-center gap-4 w-full">
+                        <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center text-green-500">
+                          <CheckCircle2 size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate text-white">{file.name}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeFile(); }}
+                          className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-gray-400 group-hover:text-white transition-colors">
+                          <Upload size={24} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-gray-200">Click or drag resume here</p>
+                          <p className="text-xs text-gray-500 mt-1">PDF, DOC, DOCX up to 5MB</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <button
